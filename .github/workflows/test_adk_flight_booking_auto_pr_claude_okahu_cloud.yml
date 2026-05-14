@@ -1,0 +1,128 @@
+name: (Deprecated) Test Flight Booking - Claude + Okahu Cloud
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install python-dotenv
+        pip install -r requirements.txt
+        pip install -r tests/requirements.txt
+        
+    - name: Run test_adk_flight_booking.py
+      id: test
+      continue-on-error: true
+      env:
+        OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
+        OKAHU_INGESTION_ENDPOINT: ${{ secrets.OKAHU_INGESTION_ENDPOINT }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+        GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+        GOOGLE_GENAI_MODEL: ${{ secrets.GOOGLE_GENAI_MODEL }}
+        GOOGLE_GENAI_USE_VERTEXAI: ${{ secrets.GOOGLE_GENAI_USE_VERTEXAI }}
+        MONOCLE_EXPORTER: okahu
+      run: |
+        set -o pipefail
+        pytest tests/test_adk_flight_booking.py -v 2>&1 | tee test_output.txt
+        echo "test_exit_code=$?" >> $GITHUB_OUTPUT
+        
+    - name: Create GitHub Issue on Test Failure
+      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Prepare issue body
+        cat > issue_body.md << 'EOF'
+        ## Test Failure: test_adk_flight_booking.py
+        
+        The test workflow `test_adk_flight_booking_auto_pr.yml` failed.
+        
+        ### Workflow Error Output
+        
+        ```
+        EOF
+        
+        # Add test output
+        if [ -f test_output.txt ]; then
+          cat test_output.txt >> issue_body.md
+        else
+          echo "Test output not available" >> issue_body.md
+        fi
+        
+        cat >> issue_body.md << 'EOF'
+        ```
+        
+        ### Trace Data (Okahu MCP)
+        
+        Use the **Okahu MCP server** to get trace data (do not use local `.monocle` JSON files). Available tools:
+        
+        - `okahu/get_available_apps_and_workflows` – list apps and workflows
+        - `okahu/get_traces` – get traces
+        - `okahu/get_trace_spans` – get trace spans
+        - `okahu/analyze_error_with_ai` – analyze errors with AI
+        - `okahu/get_eval_templates` – get eval templates
+        - `okahu/execute_eval_from_json` – run eval from JSON
+        - `okahu/execute_eval_from_okahu` – run eval from Okahu
+        - `okahu/get_app_prompts` – get app prompts
+        - `okahu/get_app_error_groups` – get app error groups
+        
+        ### Action Required
+        
+        **PROMPT:** Use the Okahu MCP tools above to get trace data and run okahu eval. Use the right eval to gather information about the error before code fix. Fix the code based on workflow output of the failed test and the Okahu trace/eval results. DO NOT modify the test code itself. Then rerun the test `tests/test_adk_flight_booking.py` until it passes. Finally, run another okahu eval and report back the final results.
+        
+        ### When your task is complete (required)
+        
+        **At the end of your agent task run**, update **this issue** (the original issue that assigned you) with the exact finding from your PR: add a comment or edit the issue body to summarize root cause, changes made, and outcome (e.g. test pass/fail, Okahu eval results). Reference the PR by number or link so reviewers can see the full fix.
+        
+        ---
+        
+        *This issue was automatically created by the GitHub Actions workflow.*
+        EOF
+        
+        echo "" >> issue_body.md
+        echo "- Workflow Run ID: ${GITHUB_RUN_ID}" >> issue_body.md
+        
+        # Create the issue
+        TITLE="Test Failure: test_adk_flight_booking.py - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+        ISSUE_URL=$(gh issue create --title "$TITLE" --body-file issue_body.md)
+        echo "Created issue: $ISSUE_URL"
+        # Extract issue number for later use
+        ISSUE_NUM=$(echo "$ISSUE_URL" | sed -n 's|.*/issues/\([0-9]*\)|\1|p')
+        echo "ISSUE_NUM=$ISSUE_NUM" >> $GITHUB_ENV
+
+    # --- Assign agent (best-effort; may fail in CI) ---
+    # GITHUB_TOKEN: "target repository is not writable" (replaceActorsForAssignable).
+    # PAT (GH_PAT): "Resource not accessible by personal access token" — agent assignment may be UI/App-only.
+    - name: Assign anthropic-code-agent (gh CLI)
+      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+      run: |
+        gh issue edit $ISSUE_NUM --add-assignee "anthropic-code-agent"
+
+    - name: Fail job if test failed
+      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
+      run: |
+        echo "Test failed. GitHub issue has been created."
+        exit 1

@@ -1,0 +1,108 @@
+name: Test Flight Booking Fluent - Kahu
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install python-dotenv
+        pip install -r requirements.txt
+        pip install "git+https://github.com/monocle2ai/monocle.git@refs/pull/485/head#subdirectory=test_tools"
+        pip install -r tests/requirements.txt
+
+    - name: Run test_adk_flight_booking_fluent.py
+      id: test
+      continue-on-error: true
+      env:
+        OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
+        OKAHU_INGESTION_ENDPOINT: ${{ secrets.OKAHU_INGESTION_ENDPOINT }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+        GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+        GOOGLE_GENAI_MODEL: ${{ secrets.GOOGLE_GENAI_MODEL }}
+        GOOGLE_GENAI_USE_VERTEXAI: ${{ secrets.GOOGLE_GENAI_USE_VERTEXAI }}
+        MONOCLE_EXPORTER: okahu
+      run: |
+        set -o pipefail
+        pytest tests/test_adk_flight_booking_fluent.py -v 2>&1 | tee test_output.txt
+        echo "test_exit_code=$?" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Issue on Test Failure
+      id: create_issue
+      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        CICD_OKAHU_APP_NAME: ${{ secrets.CICD_OKAHU_APP_NAME }}
+      run: |
+        cat > issue_body.md << 'EOF'
+        ## Okahu Environment: Okahu-prod
+
+        ## Test Failure: test_adk_flight_booking_fluent.py
+
+        The test workflow `test_adk_flight_booking_fluent_kahu.yml` failed.
+
+        ### Workflow Error Output
+
+        ```
+        EOF
+        if [ -f test_output.txt ]; then
+          cat test_output.txt >> issue_body.md
+        else
+          echo "Test output not available" >> issue_body.md
+        fi
+        cat >> issue_body.md << 'EOF'
+        ```
+        EOF
+
+        cat >> issue_body.md << 'EOF'
+
+        ---
+
+        *This issue was automatically created by the GitHub Actions workflow.*
+        EOF
+
+        echo "" >> issue_body.md
+        echo "- Workflow Run ID: ${GITHUB_RUN_ID}" >> issue_body.md
+        echo "- GitHub Actor: ${GITHUB_ACTOR}" >> issue_body.md
+
+        TITLE="Test Failure: test_adk_flight_booking_fluent.py - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+        ISSUE_URL=$(gh issue create --title "$TITLE" --body-file issue_body.md)
+        echo "Created issue: $ISSUE_URL"
+        ISSUE_NUM=$(echo "$ISSUE_URL" | sed -n 's|.*/issues/\([0-9]*\)|\1|p')
+        echo "ISSUE_NUM=$ISSUE_NUM" >> $GITHUB_ENV
+        echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
+
+    - name: Comment @kahu investigate on issue
+      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        CICD_OKAHU_APP_NAME: ${{ secrets.CICD_OKAHU_APP_NAME }}
+      run: |
+        set -euo pipefail
+        APP="${CICD_OKAHU_APP_NAME:-unknown_app}"
+        BODY="$(printf '@kahu investigate test failure on github_%s for app %s' "${GITHUB_RUN_ID}" "${APP}")"
+        gh issue comment "${ISSUE_NUM}" --body "${BODY}"
+
+    - name: Fail job if test failed
+      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
+      run: |
+        echo "Test failed. GitHub issue has been created."
+        exit 1

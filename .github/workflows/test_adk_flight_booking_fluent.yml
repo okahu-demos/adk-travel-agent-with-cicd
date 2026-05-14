@@ -1,0 +1,39 @@
+name: (Deprecated) Test ADK Flight Booking Fluent
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install python-dotenv
+        pip install -r requirements.txt
+        pip install -r tests/requirements.txt
+
+    - name: Run test_adk_flight_booking_fluent.py
+      env:
+        OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
+        OKAHU_INGESTION_ENDPOINT: ${{ secrets.OKAHU_INGESTION_ENDPOINT }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+        GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+        GOOGLE_GENAI_MODEL: ${{ secrets.GOOGLE_GENAI_MODEL }}
+        GOOGLE_GENAI_USE_VERTEXAI: ${{ secrets.GOOGLE_GENAI_USE_VERTEXAI }}
+        MONOCLE_EXPORTER: ${{ secrets.MONOCLE_EXPORTER }}
+      run: |
+        pytest tests/test_adk_flight_booking_fluent.py -v
