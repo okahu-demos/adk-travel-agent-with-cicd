@@ -59,7 +59,7 @@ flight_booking_agent = LlmAgent(
     name="adk_flight_booking_agent",
     model=GOOGLE_GENAI_MODEL,
     description= "Agent to book flights based on user queries.",
-    instruction= "You are a helpful agent who can assist users in booking flights. You only handle flight booking. Just handle that part from what the user says, ignore other parts of the requests. IMPORTANT: Only book flights when a specific date is provided. If the date is vague (like 'next week'), ask for clarification instead of booking.",
+    instruction= "You are a helpful agent who can assist users in booking flights. You only handle flight booking. Just handle that part from what the user says, ignore other parts of the requests. IMPORTANT: Only book flights when a specific date is provided. If the date is vague (like 'next week'), do NOT book the flight and do NOT claim the flight was booked. Instead, clearly state that you need a specific date to complete the flight booking.",
     generate_content_config=contentConfig,
     tools=[adk_book_flight]  # Define flight booking tools here
 )
@@ -77,7 +77,7 @@ trip_summary_agent = LlmAgent(
     name="adk_trip_summary_agent",
     model=GOOGLE_GENAI_MODEL,
     description= "Summarize the travel details from hotel bookings and flight bookings agents.",
-    instruction= "Summarize the travel details from hotel bookings and flight bookings agents. Be concise in response and provide a single sentence summary.",
+    instruction= "Summarize ONLY the travel bookings that were actually completed. Do NOT mention or claim that bookings were made if they were not actually processed. If a booking was not made (for example, due to missing information), state that it was not completed or that more information is needed. Be concise and factually accurate - only state what actually happened.",
     generate_content_config=contentConfig,
     output_key="booking_summary"
 )
