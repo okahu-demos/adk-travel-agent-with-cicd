@@ -22,7 +22,7 @@ if not os.getenv("GOOGLE_CLOUD_LOCATION"):
 
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "1000"))
 # Set env model as gemini-2.5-flash-lite by default
-GOOGLE_GENAI_MODEL = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.5-flash-lite")
+GOOGLE_GENAI_MODEL = os.getenv("GOOGLE_GENAI_MODEL") or "gemini-2.5-flash-lite"
 
 def adk_book_flight(from_airport: str, to_airport: str) -> dict:
     """Books a flight from one airport to another.
