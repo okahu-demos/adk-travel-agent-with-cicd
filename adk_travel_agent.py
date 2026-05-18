@@ -22,7 +22,9 @@ if not os.getenv("GOOGLE_CLOUD_LOCATION"):
 
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "1000"))
 
-if os.getenv("OPENAI_API_KEY"):
+# Default to Google Gemini model, use OpenAI only if explicitly enabled
+use_openai = os.getenv("USE_OPENAI", "").lower() in ("true", "1", "yes")
+if use_openai and os.getenv("OPENAI_API_KEY"):
     MODEL = os.getenv("OPENAI_MODEL", "openai/gpt-4o")
 else:
     MODEL = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.5-flash-lite")

@@ -38,7 +38,9 @@ jobs:
       env:
         OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
         OKAHU_INGESTION_ENDPOINT: ${{ secrets.OKAHU_INGESTION_ENDPOINT }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        # Only set OPENAI_API_KEY if USE_OPENAI is explicitly enabled
+        # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        # USE_OPENAI: ${{ secrets.USE_OPENAI }}
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
         GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
