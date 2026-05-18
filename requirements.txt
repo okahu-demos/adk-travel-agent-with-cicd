@@ -1,2 +1,2 @@
 mcp==1.25.0
-google-adk==1.21.0
+google-adk[extensions]==1.21.0
