@@ -28,7 +28,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install python-dotenv
         pip install -r requirements.txt
-        pip install "git+https://github.com/monocle2ai/monocle.git@refs/pull/485/head#subdirectory=test_tools"
+        pip install monocle_apptrace==0.8.1a7 pyyaml --extra-index-url https://okahu.jfrog.io/artifactory/api/pypi/okahu-patch-pypi/simple
         pip install -r tests/requirements.txt
 
 
@@ -38,6 +38,7 @@ jobs:
       env:
         OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
         OKAHU_INGESTION_ENDPOINT: ${{ secrets.OKAHU_INGESTION_ENDPOINT }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
         GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}

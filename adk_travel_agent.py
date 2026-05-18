@@ -21,8 +21,11 @@ if not os.getenv("GOOGLE_CLOUD_LOCATION"):
     os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
 
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "1000"))
-# Set env model as gemini-2.5-flash-lite by default
-GOOGLE_GENAI_MODEL = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.5-flash-lite")
+
+if os.getenv("OPENAI_API_KEY"):
+    MODEL = os.getenv("OPENAI_MODEL", "openai/gpt-4o")
+else:
+    MODEL = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.5-flash-lite")
 
 def adk_book_flight(from_airport: str, to_airport: str) -> dict:
     """Books a flight from one airport to another.
@@ -57,7 +60,7 @@ def adk_book_hotel(hotel_name: str, city: str) -> dict:
 contentConfig: types.GenerateContentConfig = types.GenerateContentConfig(max_output_tokens=MAX_OUTPUT_TOKENS)
 flight_booking_agent = LlmAgent(
     name="adk_flight_booking_agent",
-    model=GOOGLE_GENAI_MODEL,
+    model=MODEL,
     description= "Agent to book flights based on user queries.",
     instruction= "You are a helpful agent who can assist users in booking flights. You only handle flight booking. Just handle that part from what the user says, ignore other parts of the requests. IMPORTANT: Only book flights when a specific date is provided. If the date is vague (like 'next week'), ask for clarification instead of booking.",
     generate_content_config=contentConfig,
@@ -66,7 +69,7 @@ flight_booking_agent = LlmAgent(
 
 hotel_booking_agent = LlmAgent(
     name="adk_hotel_booking_agent",
-    model=GOOGLE_GENAI_MODEL,
+    model=MODEL,
     description= "Agent to book hotels based on user queries.",
     instruction= "You are a helpful agent who can assist users in booking hotels. You only handle hotel booking. Book hotel if the user explicitly asks, just handle that part from what the user says, ignore other parts of the requests. NOTE: Marriott is only available on odd dates. Otherwise Hilton is the primary option unless user states specific hotel criteria and you can go ahead and book that instead. IMPORTANT: Use the exact tool name 'adk_book_hotel' to book hotels.",
     generate_content_config=contentConfig,
@@ -75,7 +78,7 @@ hotel_booking_agent = LlmAgent(
 
 trip_summary_agent = LlmAgent(
     name="adk_trip_summary_agent",
-    model=GOOGLE_GENAI_MODEL,
+    model=MODEL,
     description= "Summarize the travel details from hotel bookings and flight bookings agents.",
     instruction= "Summarize the travel details from hotel bookings and flight bookings agents. Be concise in response and provide a single sentence summary.",
     generate_content_config=contentConfig,
