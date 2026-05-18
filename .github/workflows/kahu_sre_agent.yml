@@ -14,14 +14,30 @@ jobs:
   kahu:
     runs-on: ubuntu-latest
     if: |
-      github.event.sender.login == github.repository_owner &&
       (
         (github.event_name == 'issues' && contains(github.event.issue.body, '@kahu')) ||
         (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@kahu'))
       )
 
     steps:
+    - name: Check org membership
+      id: auth
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        SENDER: ${{ github.event.sender.login }}
+        ORG: ${{ github.repository_owner }}
+      run: |
+        set -euo pipefail
+        STATUS=$(gh api "orgs/${ORG}/members/${SENDER}" --silent -i 2>&1 | head -1 | grep -oE '[0-9]{3}' || echo "404")
+        if [ "$STATUS" = "204" ]; then
+          echo "allowed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Sender ${SENDER} is not a member of ${ORG} (HTTP ${STATUS})"
+          echo "allowed=false" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Extract @kahu query and context
+      if: steps.auth.outputs.allowed == 'true'
       id: extract
       env:
         ISSUE_BODY: ${{ github.event.issue.body }}
@@ -44,6 +60,7 @@ jobs:
         printf 'query=%s\n' "$QUERY" >> "$GITHUB_OUTPUT"
 
     - name: Resolve GitHub run ID to trace IDs
+      if: steps.auth.outputs.allowed == 'true'
       id: traces
       env:
         OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
@@ -101,6 +118,7 @@ jobs:
         } >> "$GITHUB_OUTPUT"
 
     - name: Call Kahu SRE Agent API
+      if: steps.auth.outputs.allowed == 'true'
       id: sre_agent
       env:
         OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
@@ -146,6 +164,7 @@ jobs:
         } >> "$GITHUB_OUTPUT"
 
     - name: Post SRE Agent response as comment
+      if: steps.auth.outputs.allowed == 'true'
       env:
         GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
         AGENT_RESPONSE: ${{ steps.sre_agent.outputs.response }}
