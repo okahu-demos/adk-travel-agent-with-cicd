@@ -16,12 +16,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-
 
     - name: Install dependencies
       run: |
@@ -30,7 +29,6 @@ jobs:
         pip install -r requirements.txt
         pip install monocle_apptrace==0.8.1a7 pyyaml --extra-index-url https://okahu.jfrog.io/artifactory/api/pypi/okahu-patch-pypi/simple
         pip install -r tests/requirements.txt
-
 
     - name: Run test_adk_flight_booking_fluent.py
       id: test
@@ -50,67 +48,41 @@ jobs:
         pytest tests/test_adk_flight_booking_fluent.py -v 2>&1 | tee test_output.txt
         echo "test_exit_code=$?" >> $GITHUB_OUTPUT
 
+    - name: Resolve traces via Kahu
+      id: traces
+      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
+      env:
+        OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
+        APP: ${{ secrets.CICD_OKAHU_APP_NAME }}
+        QUERY: investigate test failure on github_${{ github.run_id }}
+      run: python scripts/kahu_resolve_traces.py
 
-    - name: Create GitHub Issue on Test Failure
+    - name: Call Kahu SRE Agent
+      id: kahu
+      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
+      env:
+        OKAHU_API_KEY: ${{ secrets.OKAHU_API_KEY }}
+        APP: ${{ secrets.CICD_OKAHU_APP_NAME }}
+        QUERY: investigate test failure on github_${{ github.run_id }}
+        TRACE_IDS: ${{ steps.traces.outputs.trace_ids }}
+      run: python scripts/kahu_call_agent.py
+
+    - name: Create GitHub Issue with Kahu analysis
       id: create_issue
       if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        CICD_OKAHU_APP_NAME: ${{ secrets.CICD_OKAHU_APP_NAME }}
-      run: |
-        cat > issue_body.md << 'EOF'
-        ## Okahu Environment: Okahu-prod
-
-        ## Test Failure: test_adk_flight_booking_fluent.py
-        
-        The test workflow `test_adk_flight_booking_fluent_auto_pr_claude_okahu_eval.yml` failed.
-        
-        ### Workflow Error Output
-        
-        ```
-        EOF
-        if [ -f test_output.txt ]; then
-          cat test_output.txt >> issue_body.md
-        else
-          echo "Test output not available" >> issue_body.md
-        fi
-        cat >> issue_body.md << 'EOF'
-        ```
-        EOF
-
-        cat >> issue_body.md << 'EOF'
-
-        ---
-        
-        *This issue was automatically created by the GitHub Actions workflow.*
-        EOF
-
-        echo "" >> issue_body.md
-        echo "- Workflow Run ID: ${GITHUB_RUN_ID}" >> issue_body.md
-        echo "- GitHub Actor: ${GITHUB_ACTOR}" >> issue_body.md
-        
-        TITLE="Test Failure: test_adk_flight_booking_fluent.py - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-        ISSUE_URL=$(gh issue create --title "$TITLE" --body-file issue_body.md)
-        echo "Created issue: $ISSUE_URL"
-        ISSUE_NUM=$(echo "$ISSUE_URL" | sed -n 's|.*/issues/\([0-9]*\)|\1|p')
-        echo "ISSUE_NUM=$ISSUE_NUM" >> $GITHUB_ENV
-        echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
-
-    - name: Comment /kahu investigate on issue
-      if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
-      env:
         GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
-        CICD_OKAHU_APP_NAME: ${{ secrets.CICD_OKAHU_APP_NAME }}
-      run: |
-        set -euo pipefail
-        APP="${CICD_OKAHU_APP_NAME:-unknown_app}"
-        BODY="$(printf '/kahu investigate test failure on github_%s for app %s\n\nConstraints:\n- You must wait for the return response of /kahu before calling other MCPs.\n- Then quote the response so the analysis is recognized from /kahu itself.\n- Do NOT create a PR.\n- Do NOT push commits.\n- Only investigate and post findings as an issue comment.\n' "${GITHUB_RUN_ID}" "${APP}")"
-        gh issue comment "${ISSUE_NUM}" --body "${BODY}"
+        WORKFLOW_NAME: test_adk_flight_booking_fluent_auto_pr_claude_okahu_eval.yml
+        TEST_FILE: test_adk_flight_booking_fluent.py
+        TEST_OUTPUT_PATH: test_output.txt
+        KAHU_RESPONSE: ${{ steps.kahu.outputs.response }}
+      run: python scripts/create_failure_issue.py
 
     - name: Assign Claude agent
       if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
       env:
         GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        ISSUE_NUM: ${{ steps.create_issue.outputs.issue_number }}
       continue-on-error: true
       run: |
         set -euo pipefail
