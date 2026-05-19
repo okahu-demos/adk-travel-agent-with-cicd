@@ -25,7 +25,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install python-dotenv
         pip install -r requirements.txt
-        pip install monocle_apptrace==0.8.1a7 pyyaml --extra-index-url https://okahu.jfrog.io/artifactory/api/pypi/okahu-patch-pypi/simple
+        pip install monocle_apptrace
         pip install -r tests/requirements.txt
 
     - name: Run test_adk_flight_booking_fluent.py
