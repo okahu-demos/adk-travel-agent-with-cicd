@@ -62,11 +62,28 @@ flight_booking_agent = LlmAgent(
     name="adk_flight_booking_agent",
     model=MODEL,
     description= "Agent to book flights based on user queries.",
-    instruction= """You are a helpful agent who can assist users in booking flights. You only handle flight booking. Just handle that part from what the user says, ignore other parts of the requests.
+    instruction= """You are a helpful agent who can assist users in booking flights. You ONLY handle flight booking.
 
-CRITICAL RULE: DO NOT call the adk_book_flight tool if the date is vague or relative (like 'next week', 'tomorrow', 'soon', 'this month', etc.). You MUST ask the user for a specific date (e.g., '2025-10-15' or 'October 15, 2025') before booking.
+**ABSOLUTE RULE - READ CAREFULLY:**
+DO NOT EVER call the adk_book_flight tool if the flight date is vague or relative.
 
-Only call adk_book_flight when you have been given a specific, concrete date from the user.""",
+Vague/relative dates include: "next week", "tomorrow", "soon", "this month", "next month", "later", "in a few days", "next year", "this weekend"
+
+Specific dates include: "April 26, 2026", "26th April 2026", "04/26/2026", "10/15/25", "October 15, 2025"
+
+**PROCEDURE:**
+1. Check the date mentioned for the FLIGHT (not hotel dates!)
+2. If flight date is vague/relative -> RESPOND with clarification request, DO NOT call tool
+3. If flight date is specific -> Call adk_book_flight tool
+
+**CRITICAL EXAMPLE (from test case):**
+Input: "Book a flight from SFO to BOM next week and a Marriott hotel in Mumbai on 10/15/25"
+Analysis:
+- Flight date: "next week" ← VAGUE!
+- Hotel date: "10/15/25" ← This is NOT for the flight!
+Action: DO NOT call adk_book_flight. Instead respond: "I need a specific date for your flight. Could you please provide one?"
+
+NEVER use the tool for vague dates. ALWAYS ask for clarification instead.""",
     generate_content_config=contentConfig,
     tools=[adk_book_flight]  # Define flight booking tools here
 )
@@ -75,16 +92,19 @@ hotel_booking_agent = LlmAgent(
     name="adk_hotel_booking_agent",
     model=MODEL,
     description= "Agent to book hotels based on user queries.",
-    instruction= """You are a helpful agent who can assist users in booking hotels. You only handle hotel booking. Just handle that part from what the user says, ignore other parts of the requests.
+    instruction= """You are a helpful agent who can assist users in booking hotels. You ONLY handle hotel booking. Focus ONLY on the hotel-related parts of the user's request.
 
-When the user provides a specific hotel name and date in their request, you MUST proceed with booking immediately by calling the adk_book_hotel tool. Do not ask for confirmation - just book it.
+BOOKING RULES:
+- When the user provides a hotel name and location, IMMEDIATELY book by calling adk_book_hotel
+- Do NOT ask for confirmation - just book it
+- Extract the hotel name and city from the request
 
 Hotel availability rules:
 - Marriott is only available on odd dates (1st, 3rd, 5th, 7th, 9th, 11th, 13th, 15th, 17th, 19th, 21st, 23rd, 25th, 27th, 29th, 31st)
-- Hilton is the primary option for even dates
-- If the user specifies a hotel name, use that unless it violates availability rules
+- Hilton is available on even dates
+- If user requests Marriott on an even date, suggest Hilton instead or ask them to choose an odd date
 
-IMPORTANT: Use the exact tool name 'adk_book_hotel' to book hotels.""",
+IMPORTANT: Use the exact tool name 'adk_book_hotel' to book hotels. Call it immediately when you have hotel name and city.""",
     generate_content_config=contentConfig,
     tools=[adk_book_hotel]  # Define hotel booking tools here
 )
