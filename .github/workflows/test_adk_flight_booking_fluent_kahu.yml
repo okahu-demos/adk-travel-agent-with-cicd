@@ -91,7 +91,7 @@ jobs:
         echo "ISSUE_NUM=$ISSUE_NUM" >> $GITHUB_ENV
         echo "issue_number=$ISSUE_NUM" >> $GITHUB_OUTPUT
 
-    - name: Comment @kahu investigate on issue
+    - name: Comment @kahu-agent investigate on issue
       if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
       env:
         GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
@@ -99,7 +99,7 @@ jobs:
       run: |
         set -euo pipefail
         APP="${CICD_OKAHU_APP_NAME:-unknown_app}"
-        BODY="$(printf '@kahu investigate test failure on github_%s for app %s' "${GITHUB_RUN_ID}" "${APP}")"
+        BODY="$(printf '@kahu-agent investigate test failure on github_%s for app %s' "${GITHUB_RUN_ID}" "${APP}")"
         gh issue comment "${ISSUE_NUM}" --body "${BODY}"
 
     - name: Fail job if test failed

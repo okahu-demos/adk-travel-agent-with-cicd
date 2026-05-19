@@ -15,8 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       (
-        (github.event_name == 'issues' && contains(github.event.issue.body, '@kahu')) ||
-        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@kahu'))
+        (github.event_name == 'issues' && contains(github.event.issue.body, '@kahu-agent')) ||
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@kahu-agent'))
       )
 
     steps:
@@ -36,7 +36,7 @@ jobs:
           echo "allowed=false" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Extract @kahu query and context
+    - name: Extract @kahu-agent query and context
       if: steps.auth.outputs.allowed == 'true'
       id: extract
       env:
@@ -52,7 +52,7 @@ jobs:
           TEXT="$ISSUE_BODY"
         fi
 
-        QUERY=$(echo "$TEXT" | sed -n 's/.*@kahu[[:space:]]*//p' | head -1)
+        QUERY=$(echo "$TEXT" | sed -n 's/.*@kahu-agent[[:space:]]*//p' | head -1)
         if [ -z "$QUERY" ]; then
           QUERY="investigate this issue"
         fi
