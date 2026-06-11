@@ -17,10 +17,17 @@ jobs:
       )
 
     steps:
+    - name: Generate Kahu App token
+      id: app_token
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ secrets.KAHU_APP_ID }}
+        private-key: ${{ secrets.KAHU_APP_PRIVATE_KEY }}
+
     - name: Check org membership
       id: auth
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ steps.app_token.outputs.token }}
         SENDER: ${{ github.event.sender.login }}
         ORG: ${{ github.repository_owner }}
       run: |
@@ -78,7 +85,7 @@ jobs:
     - name: Post SRE Agent response as comment
       if: steps.auth.outputs.allowed == 'true'
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ steps.app_token.outputs.token }}
         AGENT_RESPONSE: ${{ steps.kahu.outputs.response }}
         ISSUE_NUMBER: ${{ github.event.issue.number }}
       run: |

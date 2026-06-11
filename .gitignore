@@ -236,3 +236,6 @@ okahu_trace_explainer/examples
 
 # Temporary files
 tmp/
+
+# Private keys
+*.pem
