@@ -12,6 +12,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Generate Kahu App token
+      id: app_token
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ secrets.KAHU_APP_ID }}
+        private-key: ${{ secrets.KAHU_APP_PRIVATE_KEY }}
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -69,7 +76,7 @@ jobs:
       id: create_issue
       if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ steps.app_token.outputs.token }}
         WORKFLOW_NAME: test_adk_flight_booking_fluent_kahu.yml
         TEST_FILE: test_adk_flight_booking_fluent.py
         TEST_OUTPUT_PATH: test_output.txt
