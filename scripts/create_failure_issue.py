@@ -5,6 +5,31 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
+GITHUB_ISSUE_BODY_MAX = 65536
+SAFETY_MARGIN = 1024  # leave room for markdown overhead in transit
+
+
+def _build_body(test_output: str, workflow_name: str, test_file: str,
+                run_id: str, actor: str, kahu_response: str) -> str:
+    parts = [
+        "## Okahu Environment: Okahu-prod\n",
+        f"## Test Failure: {test_file}\n",
+        f"The test workflow `{workflow_name}` failed.\n",
+        "### Workflow Error Output\n",
+        f"```\n{test_output}\n```\n",
+    ]
+    if kahu_response:
+        parts.append("### Kahu SRE Agent Analysis\n")
+        parts.append(f"{kahu_response}\n")
+        parts.append("---\n*Analysis from [Okahu SRE Agent](https://okahu.co)*\n")
+    parts.extend([
+        "---\n",
+        "*This issue was automatically created by the GitHub Actions workflow.*\n",
+        f"- Workflow Run ID: {run_id}\n",
+        f"- GitHub Actor: {actor}\n",
+    ])
+    return "\n".join(parts)
+
 
 def create_issue(
     workflow_name: str,
@@ -15,34 +40,22 @@ def create_issue(
     repo: str,
     kahu_response: str = "",
 ) -> str:
-    test_output = ""
     if os.path.isfile(test_output_path):
         with open(test_output_path) as f:
             test_output = f.read()
     else:
         test_output = "Test output not available"
 
-    body_parts = [
-        "## Okahu Environment: Okahu-prod\n",
-        f"## Test Failure: {test_file}\n",
-        f"The test workflow `{workflow_name}` failed.\n",
-        "### Workflow Error Output\n",
-        f"```\n{test_output}\n```\n",
-    ]
+    body = _build_body(test_output, workflow_name, test_file, run_id, actor, kahu_response)
 
-    if kahu_response:
-        body_parts.append("### Kahu SRE Agent Analysis\n")
-        body_parts.append(f"{kahu_response}\n")
-        body_parts.append("---\n*Analysis from [Okahu SRE Agent](https://okahu.co)*\n")
-
-    body_parts.extend([
-        "---\n",
-        "*This issue was automatically created by the GitHub Actions workflow.*\n",
-        f"- Workflow Run ID: {run_id}\n",
-        f"- GitHub Actor: {actor}\n",
-    ])
-
-    body = "\n".join(body_parts)
+    limit = GITHUB_ISSUE_BODY_MAX - SAFETY_MARGIN
+    if len(body) > limit:
+        # Test output is the unbounded part — trim it, keep the tail (where the error is).
+        overflow = len(body) - limit
+        marker = "...[truncated, see workflow logs for full output]...\n"
+        keep = max(0, len(test_output) - overflow - len(marker))
+        test_output = marker + test_output[-keep:] if keep > 0 else marker
+        body = _build_body(test_output, workflow_name, test_file, run_id, actor, kahu_response)
     body_file = "/tmp/issue_body.md"
     with open(body_file, "w") as f:
         f.write(body)
