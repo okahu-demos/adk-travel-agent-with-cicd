@@ -32,11 +32,10 @@ jobs:
         ORG: ${{ github.repository_owner }}
       run: |
         set -euo pipefail
-        STATUS=$(gh api "orgs/${ORG}/members/${SENDER}" --silent -i 2>&1 | head -1 | grep -oE '[0-9]{3}' || echo "404")
-        if [ "$STATUS" = "204" ]; then
+        if gh api "orgs/${ORG}/members/${SENDER}" --silent >/dev/null 2>&1; then
           echo "allowed=true" >> "$GITHUB_OUTPUT"
         else
-          echo "Sender ${SENDER} is not a member of ${ORG} (HTTP ${STATUS})"
+          echo "Sender ${SENDER} is not a member of ${ORG}"
           echo "allowed=false" >> "$GITHUB_OUTPUT"
         fi
 
