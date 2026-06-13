@@ -8,13 +8,17 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: kahu-sre-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
 jobs:
   kahu:
     runs-on: ubuntu-latest
     if: |
-      (
-        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@kahu-agent'))
-      )
+      github.event_name == 'issue_comment'
+      && contains(github.event.comment.body, '@kahu-agent')
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
 
     steps:
     - name: Generate Kahu App token

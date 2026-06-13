@@ -14,6 +14,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Generate Kahu App token
+      id: app_token
+      uses: actions/create-github-app-token@v1
+      with:
+        app-id: ${{ secrets.KAHU_APP_ID }}
+        private-key: ${{ secrets.KAHU_APP_PRIVATE_KEY }}
+
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -71,7 +78,7 @@ jobs:
       id: create_issue
       if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ steps.app_token.outputs.token }}
         WORKFLOW_NAME: test_adk_flight_booking_fluent_auto_pr_claude_okahu_eval.yml
         TEST_FILE: test_adk_flight_booking_fluent.py
         TEST_OUTPUT_PATH: test_output.txt
@@ -81,7 +88,7 @@ jobs:
     - name: Assign Claude agent
       if: steps.test.outcome == 'failure' || steps.test.outputs.test_exit_code != '0'
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ steps.app_token.outputs.token }}
         ISSUE_NUM: ${{ steps.create_issue.outputs.issue_number }}
       continue-on-error: true
       run: |
@@ -95,8 +102,8 @@ jobs:
         gh api graphql -f query="$QUERY"
         COUNT="$(gh api "repos/${{ github.repository }}/issues/${ISSUE_NUM}" --jq '[.assignees[] | select(.login == "Claude")] | length')"
         if [ "${COUNT}" -eq 0 ]; then
-          echo "::warning::Claude was not assigned. Set GH_PAT (repo/issues) or assign Claude in the UI."
-          gh issue comment "${ISSUE_NUM}" --body "Automated assign to Claude did not apply. Assign **Claude** in the sidebar, or add a \`GH_PAT\` secret and re-run." || true
+          echo "::warning::Claude was not assigned. Confirm the Claude GitHub App is installed on this repo and the kahu-agent App has Issues: Write, then re-run."
+          gh issue comment "${ISSUE_NUM}" --body "Automated assign to Claude did not apply. Assign **Claude** in the sidebar, or confirm the Claude App is installed on this repo." || true
         fi
 
     - name: Fail job if test failed
