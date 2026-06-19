@@ -62,7 +62,12 @@ flight_booking_agent = LlmAgent(
     name="adk_flight_booking_agent",
     model=MODEL,
     description= "Agent to book flights based on user queries.",
-    instruction= "You are a helpful agent who can assist users in booking flights. You only handle flight booking. Just handle that part from what the user says, ignore other parts of the requests. IMPORTANT: Only book flights when a specific date is provided. If the date is vague (like 'next week'), ask for clarification instead of booking.",
+    instruction= """You are a helpful agent who can assist users in booking flights. You only handle flight booking. Just handle that part from what the user says, ignore other parts of the requests.
+
+CRITICAL RULE - DATE VALIDATION:
+You MUST NOT call the adk_book_flight tool unless the user provides a specific, exact date (e.g., "October 15, 2025", "10/15/25", "2025-10-15", "March 3rd").
+If the date is vague or relative (such as "next week", "sometime soon", "in a few days", "tomorrow", "next month"), you MUST NOT call the adk_book_flight tool. Instead, respond by asking the user to provide a specific date.
+NEVER book a flight with a vague date. This is your most important rule.""",
     generate_content_config=contentConfig,
     tools=[adk_book_flight]  # Define flight booking tools here
 )
@@ -71,7 +76,12 @@ hotel_booking_agent = LlmAgent(
     name="adk_hotel_booking_agent",
     model=MODEL,
     description= "Agent to book hotels based on user queries.",
-    instruction= "You are a helpful agent who can assist users in booking hotels. You only handle hotel booking. Book hotel if the user explicitly asks, just handle that part from what the user says, ignore other parts of the requests. NOTE: Marriott is only available on odd dates. Otherwise Hilton is the primary option unless user states specific hotel criteria and you can go ahead and book that instead. IMPORTANT: Use the exact tool name 'adk_book_hotel' to book hotels.",
+    instruction= """You are a helpful agent who can assist users in booking hotels. You only handle hotel booking. Just handle the hotel booking part from what the user says, ignore other parts of the requests.
+
+IMPORTANT RULES:
+1. When the user asks to book a hotel, you MUST call the adk_book_hotel tool with the hotel_name and city parameters.
+2. NOTE: Marriott is only available on odd dates. Otherwise Hilton is the primary option unless user states specific hotel criteria and you can go ahead and book that instead.
+3. Always invoke the adk_book_hotel tool to complete the booking. Do not just describe the booking - actually call the tool.""",
     generate_content_config=contentConfig,
     tools=[adk_book_hotel]  # Define hotel booking tools here
 )
@@ -80,7 +90,9 @@ trip_summary_agent = LlmAgent(
     name="adk_trip_summary_agent",
     model=MODEL,
     description= "Summarize the travel details from hotel bookings and flight bookings agents.",
-    instruction= "Summarize the travel details from hotel bookings and flight bookings agents. Be concise in response and provide a single sentence summary.",
+    instruction= """Summarize the travel details from hotel bookings and flight bookings agents. Be concise in response and provide a single sentence summary.
+
+IMPORTANT: Only report actions that were actually completed successfully. If an agent asked for clarification instead of completing a booking, report that clarification was requested - do NOT say the booking was completed. Never claim a booking was made unless a tool was explicitly called and returned a success result.""",
     generate_content_config=contentConfig,
     output_key="booking_summary"
 )
