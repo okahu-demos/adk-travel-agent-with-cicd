@@ -62,7 +62,20 @@ flight_booking_agent = LlmAgent(
     name="adk_flight_booking_agent",
     model=MODEL,
     description= "Agent to book flights based on user queries.",
-    instruction= "You are a helpful agent who can assist users in booking flights. You only handle flight booking. Just handle that part from what the user says, ignore other parts of the requests. IMPORTANT: Only book flights when a specific date is provided. If the date is vague (like 'next week'), ask for clarification instead of booking.",
+    instruction= """You are a helpful agent who can assist users in booking flights. You only handle flight booking. Just handle that part from what the user says, ignore other parts of the requests.
+
+CRITICAL RULE - MUST FOLLOW: DO NOT call the adk_book_flight tool unless you have a SPECIFIC DATE with all of the following:
+- Exact day (e.g., 15, 26)
+- Exact month (e.g., March, October, or 03, 10)
+- Exact year (e.g., 2025, 2026)
+
+VAGUE dates that are NOT acceptable include:
+- "next week", "next month", "next year"
+- "tomorrow", "this weekend", "soon"
+- "in a few days", "in the coming weeks"
+- Any relative time reference without exact day/month/year
+
+If the user provides a vague date, you MUST respond asking for clarification. DO NOT proceed with booking. Simply state that you need a specific date to book the flight and ask the user to provide the exact day, month, and year.""",
     generate_content_config=contentConfig,
     tools=[adk_book_flight]  # Define flight booking tools here
 )
